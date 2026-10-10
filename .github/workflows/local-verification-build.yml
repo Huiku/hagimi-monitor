@@ -1,0 +1,39 @@
+name: Local Verification Build
+
+on:
+  push:
+    branches:
+      - codex/fix-apple-watch-battery
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: xcode-27
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build unsigned Debug app
+        run: |
+          xcodebuild build \
+            -project hagimi-monitor.xcodeproj \
+            -scheme HagimiMonitorDirect \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO
+
+          ditto -c -k --keepParent \
+            "$RUNNER_TEMP/DerivedData/Build/Products/Debug/HagimiMonitorDirect.app" \
+            "$RUNNER_TEMP/HagimiMonitorDirect-Debug.zip"
+
+      - name: Upload Debug app
+        uses: actions/upload-artifact@v6
+        with:
+          name: HagimiMonitorDirect-Debug
+          path: ${{ runner.temp }}/HagimiMonitorDirect-Debug.zip
+          if-no-files-found: error
+          retention-days: 1

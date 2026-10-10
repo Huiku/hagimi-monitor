@@ -585,12 +585,16 @@ final class BluetoothBatterySampler: NSObject {
     private static func ioBatteryPercent(of device: IOBluetoothDevice) -> Int? {
         func number(for key: String) -> Int? {
             guard device.responds(to: Selector((key))),
-                  let boxed = device.value(forKey: key) as? NSNumber,
-                  (0...100).contains(boxed.intValue) else {
+                  let boxed = device.value(forKey: key) as? NSNumber else {
                 return nil
             }
-            return boxed.intValue
+            return validIOBatteryPercent(boxed.intValue)
         }
+        // IOBluetooth 的私有电量 getter 对所有设备都存在；不支持电量的
+        // Continuity/BLE 设备（实测 iPhone、Apple Watch）会把每个 getter
+        // 都返回 0。这里的 0 是“未上报”哨兵，不是可信的耗尽电量：设备若
+        // 真正耗尽也无法继续维持 connected 状态。把它当成 0% 会让面板
+        // 长期伪报；真实的 0% 仍可由 profiler/GATT 的规范化解析路径保留。
         let segmentKeys = ["batteryPercentLeft", "batteryPercentRight", "batteryPercentCase"]
         let segments = segmentKeys.compactMap { number(for: $0) }
         if !segments.isEmpty {
@@ -600,6 +604,12 @@ final class BluetoothBatterySampler: NSObject {
             ?? number(for: "batteryPercentCombined")
             ?? number(for: "headsetBattery")
             ?? number(for: "batteryPercent")
+    }
+
+    /// IOBluetooth 私有 getter 的 0 表示属性未填充；只接受已上报百分比。
+    /// 保持为纯函数，覆盖 Apple Watch / iPhone 默认零值的回归测试。
+    nonisolated static func validIOBatteryPercent(_ value: Int) -> Int? {
+        (1...100).contains(value) ? value : nil
     }
 #endif
 

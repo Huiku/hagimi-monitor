@@ -123,6 +123,22 @@ struct BluetoothNormalizeMACTests {
     }
 }
 
+struct BluetoothIOBatteryValueTests {
+    @Test func rejectsUnsupportedDeviceZeroSentinel() {
+        // IOBluetooth 对不提供电量的 Continuity/BLE 设备（包括 Apple Watch）
+        // 返回 0；不得把“未上报”伪装成真实 0%。
+        #expect(BluetoothBatterySampler.validIOBatteryPercent(0) == nil)
+    }
+
+    @Test func acceptsReportedPercentageAndRejectsInvalidValues() {
+        #expect(BluetoothBatterySampler.validIOBatteryPercent(1) == 1)
+        #expect(BluetoothBatterySampler.validIOBatteryPercent(67) == 67)
+        #expect(BluetoothBatterySampler.validIOBatteryPercent(100) == 100)
+        #expect(BluetoothBatterySampler.validIOBatteryPercent(-1) == nil)
+        #expect(BluetoothBatterySampler.validIOBatteryPercent(101) == nil)
+    }
+}
+
 struct BluetoothMergeTests {
     private static func device(
         _ name: String,
